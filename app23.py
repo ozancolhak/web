@@ -33,6 +33,18 @@ def index():
         tarih = request.form["tarih"]
         saat = request.form["saat"]
 
+        # Tarihi datetime objesine çevir
+        try:
+            secilen_tarih = datetime.strptime(tarih, '%Y-%m-%d')
+        except ValueError:
+            flash("Geçersiz tarih formatı.", "danger")
+            return redirect(url_for("index"))
+
+        # Pazar kontrolü (Pazar = 6)
+        if secilen_tarih.weekday() == 6:
+            flash("Pazar günleri randevu alınamaz, lütfen başka bir gün seçin.", "danger")
+            return redirect(url_for("index"))
+
         if not ad or not tarih or not saat:
             flash("Lütfen tüm alanları doldurun.", "danger")
             return redirect(url_for("index"))
@@ -59,7 +71,11 @@ def index():
     today = datetime.today().strftime('%Y-%m-%d')
     selected_date = request.args.get('tarih', today)
 
-    saatler = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"]
+    saatler = ['10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
+               '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+               '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30',
+               '22:00', '22:30', '23:00']
+
     c.execute("SELECT saat FROM randevular WHERE tarih = ?", (selected_date,))
     dolu_saatler = [row[0] for row in c.fetchall()]
     bos_saatler = [s for s in saatler if s not in dolu_saatler]
@@ -110,3 +126,4 @@ def sil(id):
 if __name__ == "__main__":
     init_db()
     app.run(debug=True)
+
