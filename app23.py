@@ -81,7 +81,8 @@ def index():
     bos_saatler = [s for s in saatler if s not in dolu_saatler]
 
     conn.close()
-    return render_template("index.html", bos_saatler=bos_saatler, selected_date=selected_date)
+    return render_template("index.html", bos_saatler=bos_saatler, dolu_saatler=dolu_saatler, selected_date=selected_date)
+  
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
@@ -126,4 +127,3 @@ def sil(id):
 if __name__ == "__main__":
     init_db()
     app.run(debug=True)
-
