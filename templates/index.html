@@ -2,14 +2,14 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>Yıldız Kuaför Randevu Sistemi</title>
+  <title>Kuaför Randevu Sistemi</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="bg-light">
   <div class="container py-5">
-    <h2 class="mb-4">Yıldız Kuaför Randevu </h2>
+    <h2 class="mb-4">Kuaför Randevu Sistemi</h2>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
@@ -17,7 +17,7 @@
       {% endfor %}
     {% endwith %}
 
-    <form method="POST" >
+    <form method="POST">
       <div class="mb-3">
         <label class="form-label">Ad Soyad *</label>
         <input type="text" class="form-control" name="ad" maxlength="50" pattern="[A-Za-zÇçĞğİıÖöŞşÜü\s]+" required title="Sadece harf kullanabilirsiniz.">
@@ -33,7 +33,7 @@
         <select class="form-select" name="saat" required>
           <option value="">Boş Saat Seçin</option>
           {% for saat in bos_saatler %}
-            <option>{{ saat }}</option>
+            <option value="{{ saat }}">{{ saat }}</option>
           {% endfor %}
         </select>
       </div>
@@ -43,32 +43,19 @@
 
     <hr>
 
-    <div class="row">
-      <div class="col-md-6">
-        <h4>Meşgul Saatler</h4>
-        {% if dolu_saatler %}
-          <ul class="list-group">
-            {% for saat in dolu_saatler %}
-              <li class="list-group-item list-group-item-danger">{{ saat }}</li>
-            {% endfor %}
-          </ul>
+    <h4 class="mt-4">{{ selected_date }} Tarihi İçin Tüm Saatler</h4>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2 mt-2">
+      {% for saat in saatler %}
+        {% if saat in dolu_saatler %}
+          <div class="col">
+            <div class="p-2 text-center border rounded bg-danger text-white">{{ saat }} - Meşgul</div>
+          </div>
         {% else %}
-          <p>Meşgul saat yok.</p>
+          <div class="col">
+            <div class="p-2 text-center border rounded bg-success text-white">{{ saat }} - Boş</div>
+          </div>
         {% endif %}
-      </div>
-
-      <div class="col-md-6">
-        <h4>Boş Saatler</h4>
-        {% if bos_saatler %}
-          <ul class="list-group">
-            {% for saat in bos_saatler %}
-              <li class="list-group-item list-group-item-success">{{ saat }}</li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p>Boş saat yok.</p>
-        {% endif %}
-      </div>
+      {% endfor %}
     </div>
 
     <a href="/admin" class="btn btn-secondary mt-4">Admin Panel</a>
