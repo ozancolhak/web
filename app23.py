@@ -33,11 +33,12 @@ def index():
         tarih = request.form["tarih"]
         saat = request.form["saat"]
 
-        # Tarihi datetime objesine çevir
+        # Tarih ve saat formatlarını kontrol et
         try:
             secilen_tarih = datetime.strptime(tarih, '%Y-%m-%d')
+            secilen_saat = datetime.strptime(saat, '%H:%M').time()
         except ValueError:
-            flash("Geçersiz tarih formatı.", "danger")
+            flash("Geçersiz tarih veya saat formatı.", "danger")
             return redirect(url_for("index"))
 
         # Pazar kontrolü (Pazar = 6)
@@ -45,16 +46,25 @@ def index():
             flash("Pazar günleri randevu alınamaz, lütfen başka bir gün seçin.", "danger")
             return redirect(url_for("index"))
 
+        # Geçmiş tarih kontrolü
+        bugun = datetime.today().date()
+        if secilen_tarih.date() < bugun:
+            flash("Geçmiş tarihe randevu alınamaz.", "danger")
+            return redirect(url_for("index"))
+
+        # Eğer tarih bugünkü ise, saat kontrolü yap
+        if secilen_tarih.date() == bugun:
+            simdi = datetime.now().time()
+            if secilen_saat <= simdi:
+                flash("Geçmiş saate randevu alınamaz.", "danger")
+                return redirect(url_for("index"))
+
         if not ad or not tarih or not saat:
             flash("Lütfen tüm alanları doldurun.", "danger")
             return redirect(url_for("index"))
 
         if len(ad) > 50 or not ad.replace(" ", "").isalpha():
             flash("Geçerli bir isim girin (sadece harf, 50 karaktere kadar).", "danger")
-            return redirect(url_for("index"))
-
-        if tarih < datetime.today().strftime('%Y-%m-%d'):
-            flash("Geçmiş tarihe randevu alınamaz.", "danger")
             return redirect(url_for("index"))
 
         c.execute("SELECT * FROM randevular WHERE tarih = ? AND saat = ?", (tarih, saat))
@@ -81,8 +91,7 @@ def index():
     bos_saatler = [s for s in saatler if s not in dolu_saatler]
 
     conn.close()
-    return render_template("index.html", bos_saatler=bos_saatler, dolu_saatler=dolu_saatler, selected_date=selected_date)
-  
+    return render_template("index.html", bos_saatler=bos_saatler, selected_date=selected_date)
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
@@ -123,6 +132,11 @@ def sil(id):
     conn.close()
     flash("Randevu silindi.", "success")
     return redirect(url_for("admin_panel"))
+
+if __name__ == "__main__":
+    init_db()
+    app.run(debug=True)
+
 
 if __name__ == "__main__":
     init_db()
