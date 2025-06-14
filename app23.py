@@ -2,11 +2,15 @@ from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 import sqlite3
 import os
+import pytz # Saat dilimi için pytz kütüphanesini içe aktarıyoruz
 
 app = Flask(__name__)
 app.secret_key = "kuafor_secret"
 DB_PATH = "randevular.db"
 ADMIN_PASSWORD = "admin123"
+
+# Türkiye saat dilimini ayarlıyoruz
+TZ = pytz.timezone('Europe/Istanbul')
 
 def init_db():
     # Veritabanı ve tabloyu oluşturan fonksiyon
@@ -35,7 +39,6 @@ def index():
         tarih = request.form["tarih"]
         saat = request.form["saat"]
 
-        # Tarih ve saat formatlarını kontrol et
         try:
             secilen_tarih = datetime.strptime(tarih, '%Y-%m-%d')
             secilen_saat = datetime.strptime(saat, '%H:%M').time()
@@ -43,41 +46,36 @@ def index():
             flash("Geçersiz tarih veya saat formatı.", "danger")
             return redirect(url_for("index"))
 
-        # Pazar günleri randevu alınamaz (Pazar = 6)
         if secilen_tarih.weekday() == 6:
             flash("Pazar günleri randevu alınamaz, lütfen başka bir gün seçin.", "danger")
             return redirect(url_for("index"))
 
-        # Geçmiş tarihe randevu alınamaz
-        bugun = datetime.today().date()
+        # GÜNCELLEME: Geçmiş tarih kontrolünü Türkiye saatine göre yap
+        bugun = datetime.now(TZ).date()
         if secilen_tarih.date() < bugun:
             flash("Geçmiş tarihe randevu alınamaz.", "danger")
             return redirect(url_for("index"))
-
-        # Eğer tarih bugünkü ise, geçmiş saate randevu alınamaz
+        
+        # GÜNCELLEME: Geçmiş saat kontrolünü Türkiye saatine göre yap
         if secilen_tarih.date() == bugun:
-            simdi = datetime.now().time()
+            simdi = datetime.now(TZ).time()
             if secilen_saat <= simdi:
                 flash("Geçmiş saate randevu alınamaz.", "danger")
                 return redirect(url_for("index"))
 
-        # Alanların boş olup olmadığını kontrol et
         if not ad or not tarih or not saat:
             flash("Lütfen tüm alanları doldurun.", "danger")
             return redirect(url_for("index"))
 
-        # İsim geçerliliğini kontrol et
         if len(ad) > 50 or not ad.replace(" ", "").isalpha():
             flash("Geçerli bir isim girin (sadece harf, 50 karaktere kadar).", "danger")
             return redirect(url_for("index"))
 
-        # Aynı tarih ve saate başka randevu var mı kontrol et
         c.execute("SELECT * FROM randevular WHERE tarih = ? AND saat = ?", (tarih, saat))
         if c.fetchone():
             flash(f"{tarih} - {saat} saatinde başka bir randevu var.", "warning")
             return redirect(url_for("index"))
 
-        # Randevuyu veritabanına ekle
         c.execute("INSERT INTO randevular (ad, tarih, saat) VALUES (?, ?, ?)", (ad, tarih, saat))
         conn.commit()
         flash("Randevunuz başarıyla kaydedildi!", "success")
@@ -85,42 +83,38 @@ def index():
 
     # --- Sayfa ilk yüklendiğinde veya tarih değiştirildiğinde (GET isteği) ---
 
-    # Bugünün ve seçilen tarihin belirlenmesi
-    today = datetime.today().strftime('%Y-%m-%d')
+    # GÜNCELLEME: Bugünün tarihini Türkiye saatine göre al
+    today_dt = datetime.now(TZ)
+    today = today_dt.strftime('%Y-%m-%d')
     selected_date = request.args.get('tarih', today)
-
-    # URL'den gelen tarihin geçerli olup olmadığını ve geçmiş bir tarih olup olmadığını kontrol et
+    
     try:
-        if datetime.strptime(selected_date, '%Y-%m-%d').date() < datetime.today().date():
+        if datetime.strptime(selected_date, '%Y-%m-%d').date() < today_dt.date():
             flash("Geçmiş tarihler görüntülenemez, bugün seçildi.", "warning")
             selected_date = today
     except ValueError:
-        selected_date = today # Geçersiz formatta ise bugünü kullan
+        selected_date = today
 
-    # Mevcut tüm randevu saatleri
     saatler = ['10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
                '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
                '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30',
                '22:00', '22:30', '23:00']
 
-    # Seçilen tarihteki dolu saatleri veritabanından al
     c.execute("SELECT saat FROM randevular WHERE tarih = ?", (selected_date,))
     dolu_saatler = [row[0] for row in c.fetchall()]
     
-    # Boş saatleri hesapla
     tum_bos_saatler = [s for s in saatler if s not in dolu_saatler]
 
-    # Eğer seçilen tarih bugünse, geçmiş saatleri boş saatler listesinden çıkar
     bos_saatler = []
+    # GÜNCELLEME: Geçmiş saat kontrolünü Türkiye saatine göre yap
     if selected_date == today:
-        simdi = datetime.now().time()
+        simdi = today_dt.time()
         bos_saatler = [s for s in tum_bos_saatler if datetime.strptime(s, '%H:%M').time() > simdi]
     else:
         bos_saatler = tum_bos_saatler
 
     conn.close()
     
-    # Gerekli değişkenleri şablona gönder
     return render_template("index.html", bos_saatler=bos_saatler, dolu_saatler=dolu_saatler, saatler=saatler, selected_date=selected_date, today=today)
 
 
