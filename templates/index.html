@@ -25,9 +25,7 @@
 
       <div class="mb-3">
         <label class="form-label">Tarih *</label>
-        <input type="date" class="form-control" name="tarih"
-               value="{{ selected_date }}"
-               min="{{ today }}" required onchange="this.form.submit()">
+        <input type="date" class="form-control" name="tarih" value="{{ selected_date }}" min="{{ min_date }}" required onchange="this.form.submit()">
       </div>
 
       <div class="mb-3">
