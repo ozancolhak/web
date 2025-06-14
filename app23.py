@@ -28,6 +28,9 @@ def index():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
+    bugun = datetime.today().date()
+    bugun_str = bugun.strftime('%Y-%m-%d')
+
     if request.method == "POST":
         ad = request.form["ad"].strip()
         tarih = request.form["tarih"]
@@ -44,7 +47,6 @@ def index():
             flash("Pazar günleri randevu alınamaz, lütfen başka bir gün seçin.", "danger")
             return redirect(url_for("index"))
 
-        bugun = datetime.today().date()
         if secilen_tarih.date() < bugun:
             flash("Geçmiş tarihe randevu alınamaz.", "danger")
             return redirect(url_for("index"))
@@ -73,9 +75,7 @@ def index():
         flash("Randevunuz kaydedildi!", "success")
         return redirect(url_for("index"))
 
-    # Tarih ve saat listeleri
-    today = datetime.today().strftime('%Y-%m-%d')
-    selected_date = request.args.get('tarih', today)
+    selected_date = request.args.get('tarih', bugun_str)
 
     saatler = ['10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
                '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
@@ -87,48 +87,12 @@ def index():
     bos_saatler = [s for s in saatler if s not in dolu_saatler]
 
     conn.close()
-    return render_template("index.html", bos_saatler=bos_saatler, dolu_saatler=dolu_saatler,
-                           saatler=saatler, selected_date=selected_date, today=today)
-
-@app.route("/admin/login", methods=["GET", "POST"])
-def admin_login():
-    if request.method == "POST":
-        password = request.form["password"]
-        if password == ADMIN_PASSWORD:
-            session["admin"] = True
-            return redirect(url_for("admin_panel"))
-        else:
-            flash("Hatalı şifre!", "danger")
-    return render_template("admin_login.html")
-
-@app.route("/admin/logout")
-def admin_logout():
-    session.pop("admin", None)
-    flash("Çıkış yapıldı.", "info")
-    return redirect(url_for("admin_login"))
-
-@app.route("/admin")
-def admin_panel():
-    if not session.get("admin"):
-        return redirect(url_for("admin_login"))
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT id, ad, tarih, saat FROM randevular ORDER BY tarih, saat")
-    randevular = c.fetchall()
-    conn.close()
-    return render_template("admin.html", randevular=randevular)
-
-@app.route("/sil/<int:id>")
-def sil(id):
-    if not session.get("admin"):
-        return redirect(url_for("admin_login"))
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("DELETE FROM randevular WHERE id = ?", (id,))
-    conn.commit()
-    conn.close()
-    flash("Randevu silindi.", "success")
-    return redirect(url_for("admin_panel"))
+    return render_template("index.html",
+                           bos_saatler=bos_saatler,
+                           dolu_saatler=dolu_saatler,
+                           saatler=saatler,
+                           selected_date=selected_date,
+                           min_date=bugun_str)
 
 if __name__ == "__main__":
     init_db()
