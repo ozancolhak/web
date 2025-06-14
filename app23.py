@@ -1,4 +1,4 @@
-from datetime import datetime  
+from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 import sqlite3
 import os
@@ -33,37 +33,34 @@ def index():
 
     if request.method == "POST":
         ad = request.form["ad"].strip()
-        tarih = request.form["tarih"]
+        tarih_raw = request.form["tarih"]
         saat = request.form["saat"]
 
-        # Tarih formatı kontrolü
         try:
-            if "." in tarih:
-                secilen_tarih = datetime.strptime(tarih, '%d.%m.%Y')
+            if "." in tarih_raw:
+                secilen_tarih = datetime.strptime(tarih_raw, "%d.%m.%Y")
             else:
-                secilen_tarih = datetime.strptime(tarih, '%Y-%m-%d')
+                secilen_tarih = datetime.strptime(tarih_raw, "%Y-%m-%d")
             secilen_saat = datetime.strptime(saat, '%H:%M').time()
         except ValueError:
             flash("Geçersiz tarih veya saat formatı.", "danger")
             return redirect(url_for("index"))
 
-        # Pazar kontrolü
         if secilen_tarih.weekday() == 6:
             flash("Pazar günleri randevu alınamaz, lütfen başka bir gün seçin.", "danger")
             return redirect(url_for("index"))
 
-        bugun = today_obj.date()
-        if secilen_tarih.date() < bugun:
+        if secilen_tarih.date() < today_obj.date():
             flash("Geçmiş tarihe randevu alınamaz.", "danger")
             return redirect(url_for("index"))
 
-        if secilen_tarih.date() == bugun:
+        if secilen_tarih.date() == today_obj.date():
             simdi = datetime.now().time()
             if secilen_saat <= simdi:
                 flash("Geçmiş saate randevu alınamaz.", "danger")
                 return redirect(url_for("index"))
 
-        if not ad or not tarih or not saat:
+        if not ad or not tarih_raw or not saat:
             flash("Lütfen tüm alanları doldurun.", "danger")
             return redirect(url_for("index"))
 
@@ -71,24 +68,27 @@ def index():
             flash("Geçerli bir isim girin (sadece harf, 50 karaktere kadar).", "danger")
             return redirect(url_for("index"))
 
-        # Tarih formatını DB için normalize et
-        normalized_tarih = secilen_tarih.strftime('%Y-%m-%d')
-
-        c.execute("SELECT * FROM randevular WHERE tarih = ? AND saat = ?", (normalized_tarih, saat))
+        tarih_sql = secilen_tarih.strftime('%Y-%m-%d')
+        c.execute("SELECT * FROM randevular WHERE tarih = ? AND saat = ?", (tarih_sql, saat))
         if c.fetchone():
-            flash(f"{tarih} - {saat} saatinde başka bir randevu var.", "warning")
+            flash(f"{tarih_sql} - {saat} saatinde başka bir randevu var.", "warning")
             return redirect(url_for("index"))
 
-        c.execute("INSERT INTO randevular (ad, tarih, saat) VALUES (?, ?, ?)", (ad, normalized_tarih, saat))
+        c.execute("INSERT INTO randevular (ad, tarih, saat) VALUES (?, ?, ?)", (ad, tarih_sql, saat))
         conn.commit()
         flash("Randevunuz kaydedildi!", "success")
         return redirect(url_for("index"))
 
-    # GET isteği — boş saatleri getir
-    selected_date = request.args.get('tarih', today)
-    if "." in selected_date:
-        selected_date_obj = datetime.strptime(selected_date, "%d.%m.%Y")
-        selected_date = selected_date_obj.strftime('%Y-%m-%d')
+    selected_date = request.args.get("tarih", today)
+    try:
+        if "." in selected_date:
+            selected_date_obj = datetime.strptime(selected_date, "%d.%m.%Y")
+        else:
+            selected_date_obj = datetime.strptime(selected_date, "%Y-%m-%d")
+    except ValueError:
+        selected_date_obj = today_obj
+
+    selected_date = selected_date_obj.strftime('%Y-%m-%d')
 
     saatler = ['10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
                '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
@@ -100,8 +100,12 @@ def index():
     bos_saatler = [s for s in saatler if s not in dolu_saatler]
 
     conn.close()
-    return render_template("index.html", bos_saatler=bos_saatler, dolu_saatler=dolu_saatler,
-                           saatler=saatler, selected_date=selected_date)
+    return render_template("index.html",
+                           bos_saatler=bos_saatler,
+                           dolu_saatler=dolu_saatler,
+                           saatler=saatler,
+                           selected_date=selected_date,
+                           today=today)
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
